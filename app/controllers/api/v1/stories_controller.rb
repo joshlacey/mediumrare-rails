@@ -1,5 +1,6 @@
 class Api::V1::StoriesController < ApplicationController
   skip_before_action :authorized, only: [:show]
+  before_action :check_user, only: [:create, :update]
 
   def create
     @story = Story.new(story_params)
@@ -18,16 +19,20 @@ class Api::V1::StoriesController < ApplicationController
   def show
     @story = Story.find(params[:id])
     if @story
-      render json: {story: @story}, status: 200
+      render json: {story: @story, tags: @story.tags}, status: 200
     else
       render json: {message: "Story Not Found"}, status: 400
     end
   end
 
   def like
-    @story = Story.find(params[:id])
-    @story.likes += 1
-    render json: {message: "#{@story.title} has been liked"}, status: 200
+    if !is_owner
+      @story = Story.find(params[:id])
+      likes = @story.likes.to_i + 1
+      @story.update(likes: likes)
+      render json: {message: "#{@story.title} has been liked"}, status: 200
+    else
+    end
   end
 
   def update
@@ -52,7 +57,14 @@ class Api::V1::StoriesController < ApplicationController
   private
 
   def story_params
-    params.permit(:title, :user_id, body: [])
+    params.permit(:title, :user_id, body: [:html])
   end
 
+  def is_owner
+    story_params[:user_id].to_i == current_user.id
+  end
+
+  def check_user
+    render json: {message: "Forbidden" }, status: 401 unless is_owner
+  end
 end
